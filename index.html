@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blood on the Clocktower — Town Square</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="board-wrapper">
+  <div id="board">
+
+    <img id="board-bg" src="background.png" alt="">
+
+    <div id="edition-panel"></div>
+
+    <div id="traveler-sheet"></div>
+
+    <div id="controls">
+      <button id="btn-undo"  class="ctrl-btn" disabled>Undo</button>
+      <button id="btn-reset" class="ctrl-btn" style="display:none">Reset</button>
+      <button id="btn-start" class="ctrl-btn" disabled>Start Game</button>
+    </div>
+
+    <div id="reset-overlay">
+      <div id="reset-dialog">
+        <p>Reset game?</p>
+        <div id="reset-dialog-buttons">
+          <button id="btn-reset-confirm">Confirm</button>
+          <button id="btn-reset-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Interact.js must load as a plain script to set the global before modules run -->
+<script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
+<script type="module" src="app.js"></script>
+
+</body>
+</html>

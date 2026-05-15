@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sips *)",
+      "mcp__figma__get_figma_data",
+      "mcp__figma__download_figma_images",
+      "mcp__atlassian__getJiraIssue",
+      "mcp__delivery-engine__find_patterns"
+    ]
+  }
+}
