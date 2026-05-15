@@ -19,6 +19,7 @@ A browser-based digital implementation of the physical Town Square board used in
 | Drag and drop | Interact.js ([github.com/taye/interact.js](https://github.com/taye/interact.js)) | Handles mouse and touch with one API; built-in snap modifier; no framework required |
 | Player count | 5–20, set at game start, fixed for the session | Matches physical game rules |
 | State persistence | Firebase (primary) + localStorage (offline fallback TBD) | Game state survives browser close/refresh and syncs across devices |
+| Responsive scaling | CSS `transform: scale()` on the board wrapper | Preserves the fixed 1920×1080 internal coordinate system; all positions and sizes remain valid without recalculation |
 
 ---
 
@@ -126,7 +127,7 @@ SETUP → ACTIVE → (RESET → SETUP)
   y = centerY + radius * sin(angle)
   ```
   The `+ 0.5` shifts all tokens half a slot clockwise from 12 o'clock, placing the gap between `seatIndex 0` and `seatIndex (playerCount - 1)` at exactly 12 o'clock. For even counts this also produces a symmetric gap at 6 o'clock; for odd counts `seatIndex floor(playerCount / 2)` lands exactly at 6 o'clock.
-- **Board dimensions**: 1920×1080px fixed (16:9 landscape). No responsive scaling — designed for a shared landscape display or tablet.
+- **Board dimensions**: 1920×1080px internal coordinate space (16:9 landscape). All pixel values in this spec are in that coordinate space. The board scales uniformly to fill the viewport — see [Responsive Scaling](#10-responsive-scaling).
 - **Background**: Full-frame dark atmospheric medieval town scene (night, clock tower, cobblestones). Single image fills the entire 1920×1080 canvas.
 - **Player circle**: 888×888px bounding box at frame offset (231px, 83px). Center: **(675, 527)** within the 1920×1080 frame. **Radius: 444px** (fixed; does not scale with player count).
 - **Token size**: 100×100px rendered.
@@ -256,6 +257,64 @@ A large parchment-styled panel fills the upper-right portion of the screen, disp
 - **Placement**: no reset button is designed in the current Figma. Implement as a small button in the bottom-left corner of the screen (outside the token circle). Style to match the teal/parchment palette.
 - **Confirmation dialog**: not designed in Figma. Use a simple modal overlay (semi-transparent dark background) with a parchment-styled dialog box, "Reset game?" message, and Confirm / Cancel buttons matching the teal color scheme.
 
+### 10. Responsive Scaling
+
+The board always fills the full viewport width. Height follows automatically, preserving the 16:9 aspect ratio. The internal coordinate system stays at 1920×1080 — no pixel values elsewhere in this spec need to change.
+
+**Implementation:**
+
+The HTML structure uses two elements:
+
+```html
+<div id="board-wrapper">   <!-- sized in CSS to reserve the correct height -->
+  <div id="board">         <!-- 1920×1080px, scaled via transform -->
+    ...
+  </div>
+</div>
+```
+
+CSS:
+
+```css
+html {
+  min-width: 640px; /* scrollbars appear below this viewport width */
+}
+
+#board-wrapper {
+  width: 100%;
+  /* height is set dynamically by JS to match the scaled board height */
+  position: relative;
+  overflow: hidden;
+}
+
+#board {
+  width: 1920px;
+  height: 1080px;
+  transform-origin: top left;
+  /* transform: scale() is set dynamically by JS */
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+```
+
+JavaScript (recalculate on load and on every `resize` event):
+
+```javascript
+function updateScale() {
+  const scale = window.innerWidth / 1920;
+  document.getElementById('board').style.transform = `scale(${scale})`;
+  document.getElementById('board-wrapper').style.height = `${1080 * scale}px`;
+}
+
+window.addEventListener('resize', updateScale);
+updateScale();
+```
+
+**Minimum width:** `640px`. Below this the browser shows a horizontal scrollbar and the board renders at `640 / 1920 ≈ 33%` scale (life tokens appear at ~33px — small but legible for reference; intended use is on a large shared screen). Adjust this value if testing reveals the board becomes unusable at a different breakpoint.
+
+**Interact.js coordinate adjustment:** Drag snap targets are computed in the 1920×1080 coordinate space. Interact.js operates in screen coordinates, so snap targets and restrict boundaries must be multiplied by the current `scale` factor when building the `seatPositions` array. Recalculate snap targets whenever the window resizes.
+
 ---
 
 ## Firebase Setup (for implementor)
@@ -310,7 +369,7 @@ No build step required. All files are served as-is.
 - [x] Flip/transition animation → CSS opacity crossfade 200ms (no 3D flip)
 - [x] Player name field position, typography, rotation → horizontal banner at token bottom, Libra BT 11px, no rotation
 - [x] Traveler Sheet position and styling → 500×140px at (1312, 861), parchment texture, teal/red number colors
-- [x] Responsive/scaling → fixed 1920×1080px; no scaling designed
+- [x] Responsive/scaling → scale-to-fill-width: board scales so its width always fills the viewport, height follows 16:9 aspect ratio; scrollbars appear below 640px viewport width
 - [x] Rotation behavior → tokens fixed to computed positions; banners always horizontal
 
 ### Still Open
@@ -321,7 +380,7 @@ No build step required. All files are served as-is.
 - [ ] **Confirmation dialog** — not in Figma. Implementing a simple modal; confirm styling later.
 - [ ] **Edition Reference Panel exact dimensions** — panel is visible in Figma but JSON was truncated before its node; approximate position used. Needs precise export.
 - [ ] **SETUP phase UI** — Figma only shows ACTIVE state. Player count selector and column selection UI must be designed or implemented with developer defaults.
-- [ ] **Dark mode / theming** — not addressed in Figma; not in scope for v1.
+- [x] **Dark mode / theming** — not supported. Single fixed visual theme only.
 
 ---
 
