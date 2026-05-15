@@ -1,5 +1,5 @@
 # Blood on the Clocktower — Town Square Tracker
-## Technical Specification (Updated 2026-05-15 from Figma)
+## Technical Specification (Updated 2026-05-15 — all open questions resolved)
 
 ---
 
@@ -52,11 +52,11 @@ SETUP → ACTIVE → (RESET → SETUP)
 ```
 
 **SETUP phase:**
-- Storyteller selects player count (5–20)
-- Storyteller selects the matching column in the Traveler Sheet
+- Storyteller selects player count (5–20) by clicking the corresponding column in the Traveler Sheet (player track); the column highlights and locks in the count
 - Player name fields are editable
 - Life tokens are placed in default positions around the circle
-- "Start Game" action transitions to ACTIVE
+- A **Start Game** button is visible in the bottom-right corner; Reset and Undo are hidden
+- "Start Game" action transitions to ACTIVE — requires player count to be selected first
 
 **ACTIVE phase:**
 - Player count is locked
@@ -143,18 +143,27 @@ Three visual states, each using a distinct asset:
 Interactions:
 - In ACTIVE phase: click/tap to toggle between `alive` and `dead`
 - `isTraveler` flag switches the alive asset; does not affect the dead asset
-- Flipping alive → dead: vote token does not appear automatically (Storyteller adds it manually)
+- Flipping alive → dead: ghost token and shroud ring appear automatically
 - **Transition animation**: CSS opacity crossfade between the two `<img>` elements (200ms ease). No 3D flip — Figma shows discrete layer swap with no transform defined.
 
-### 3. Vote Tokens
+### 3. Ghost Token and Shroud Ring
 
-- Small token displayed adjacent to a life token when `hasVoteToken === true` and `status === "dead"`
-- Click/tap to remove (sets `hasVoteToken = false`)
-- A "spare vote tokens" zone exists on the board; clicking/tapping a spare token assigns it to the selected dead player
-- **Vote token asset**: ghost figure icon (source image: 203×203px), rendered at **45×45px**
+When a player's life token flips from alive to dead, two elements appear automatically.
+
+**Ghost token (vote token):**
+- Appears automatically when `status` flips to `"dead"` (sets `hasVoteToken = true`)
+- Click/tap to remove (sets `hasVoteToken = false`) — represents the player spending their ghost vote
+- Removal is permanent for that game state; the ring remains after the ghost token is removed
+- **Asset**: ghost figure icon (source image: 203×203px), rendered at **45×45px**
 - **Backing ellipse**: 45×45px, 15% opacity warm fill, 0.5px warm stroke (#F4EFDC), 4px drop shadow (0,4 offset, 25% black)
 - **Position**: top-right corner of the life token. Offset from life token top-left: **(+71px, −4px)**. This places the ghost token's left edge 21px right of the life token's right edge and 4px above the life token's top.
-- **Spare vote token zone**: no spare zone is designed in the current Figma. Treatment is TBD — implement as a clickable dead token gaining a vote token on first click, or defer until spare zone is designed.
+
+**Shroud ring:**
+- Appears automatically when `status` flips to `"dead"`; persists permanently and cannot be removed
+- Represents permanent dead status independently of the ghost vote
+- **Rendering**: circular ring centered on the life token, rendered behind the token face so the token artwork remains visible
+- **Dimensions (design decision — Figma node unavailable):** Circular stroke ring centered on the life token. Diameter: **110px** (5px margin outside the 100px token). Stroke: 2px, `rgba(255, 255, 255, 0.6)`. No fill. Rendered as a `border-radius: 50%` `<div>` positioned absolutely, centered behind the token face using `z-index` layering. No shadow or glow on the ring itself — the dead token artwork provides visual weight.
+- No data model field needed — derived purely from `status === "dead"`
 
 ### 4. Player Name Fields
 
@@ -189,8 +198,8 @@ Reference data (hardcoded, not from Firebase):
 | 15+     | 9         | 2         | 3       | 1      |
 
 Interactions:
-- In SETUP phase: clicking a column highlights it and sets `travelerSheetColumn` in Firebase
-- Selecting player count (5–20) should auto-select the matching column (20 → uses 15+ column)
+- In SETUP phase: clicking a column highlights it, sets `travelerSheetColumn` in Firebase, **and sets `playerCount`** — the Traveler Sheet column click is the player count selector (no separate UI element)
+- Player counts 16–20 map to the 15+ column
 - In ACTIVE phase: table is read-only, selected column remains highlighted
 - **Container**: 500×140px at frame position **(1312, 861)** (bottom-right of the 1920×1080 frame)
 - **Background**: parchment/paper texture image
@@ -240,22 +249,130 @@ interact('.life-token').draggable({
 - **Drag handle**: the entire 100×100px life token circle is the drag handle (no sub-zone)
 - **Drag opacity**: no specific drag treatment defined in Figma; use 70% opacity on the dragged element as a sensible default
 
-### 8. Edition Reference Panel (newly identified in Figma)
+### 7. Firebase Real-Time Sync
 
-A large parchment-styled panel fills the upper-right portion of the screen, displaying character names and ability descriptions for the current edition. In the Figma design this shows "TROUBLE BREWING" (the base set).
+All state mutations write to Firebase. All connected clients subscribe to the `/game` path and re-render on change.
 
-- **Position**: approximately (970, 50) to (1370, 720) within the 1920×1080 frame (≈400×670px)
-- **Styling**: aged parchment background, ornate border, serif typography — matches the Traveler Sheet aesthetic
-- **Interactivity**: none in current Figma design; it is a read-only reference
-- **Scope**: treat as a static image asset in the initial implementation. Future editions would swap the image.
+**Listener setup (in `app.js`):**
+```javascript
+const gameRef = firebase.database().ref('game');
+gameRef.on('value', (snapshot) => {
+  const state = snapshot.val();
+  renderBoard(state);
+});
+```
+
+**Write behavior:**
+- All writes replace only the changed field(s) using `gameRef.child('field').set(value)` — no full-document overwrites except on Reset
+- Name field writes fire on `blur` only (not `input`) to avoid write spam
+- Drag end writes `players[i].seatIndex` for all swapped players in a single `update()` call
+
+**Conflict handling:** Last-write-wins (Firebase default). No optimistic locking needed for a single-storyteller use case.
+
+**Offline behavior:** Firebase SDK caches the last known state locally. If connectivity drops, mutations queue locally and sync when reconnected. No explicit offline UI needed for v1.
+
+### 8. Edition Reference Panel
+
+A reference panel in the right portion of the screen showing character names and ability descriptions for the current edition. In the Figma design this shows "Trouble Brewing" (the base set).
+
+**Measured from Figma (frame-relative coordinates; frame canvas origin is at canvas x=217, y=53):**
+
+| Element | x | y | width | height | right edge |
+|---|---|---|---|---|---|
+| Parchment background (1:233) | 1312 | 78 | 500 | 765 | 1812 |
+| Title group / "Trouble Brewing" (1:419) | 1393 | 114 | 342 | 59 | 1735 |
+| Characters group (1:343) | 1345 | 193 | 499 | 617 | 1844 |
+| Titles column (character names) | 1345 | 212 | 69 | 569 | 1414 |
+| Icons column | 1421 | 209 | 28 | 579 | 1449 |
+| Descriptions column | 1460 | 212 | 384 | 576 | 1844 |
+
+All content fits within the 1920px frame width (right edge 1844 < 1920).
+
+**Title ("Trouble Brewing"):**
+- Font: Libra BT Regular 40px, black fill, centered
+- Flanked by two nested decorative vector border frames (0.5px black stroke)
+
+**Three-column character list:**
+- **Names column** (x≈1562, width 69px): Libra BT Regular 10px
+  - Townsfolk / Outsiders: `#256187` (teal-blue)
+  - Minions / Demon: `#811010` (dark red)
+- **Icons column** (x≈1638, width 28px): small vector icons, colored to match role category
+- **Descriptions column** (x≈1677, width 384px): Baskerville Regular 9.18px, black
+
+**Section headings** (Libra BT 15px):
+- "Townsfolk" at y≈246, `#256187`
+- "Outsiders" at y≈577, `#256187`
+- "minions" at y≈693, `#811010`
+- "demon" at y≈806, `#811010`
+
+**Footer:** "*Not the first night" at approximately (1910, 845) — Baskerville 9.19px, black; decorated with a golden vector badge (`#E2CC86` approx)
+
+**Parchment background container (1:233):**
+- Position: frame x=1312, y=78, 500×765px
+- Fill: image asset (imageRef `b9990f8ca86a8dccf902b610efeb901a0cd097c5`), scale mode fill
+- Treat as a static image background; export via Figma API and serve as a local asset
+- Stroke and border detail cannot be confirmed (Figma API rate-limited); implement as image-only, no additional CSS border required unless visual testing reveals a gap
+
+**Characters in this edition (Trouble Brewing):**
+- Townsfolk: Washerwoman, Librarian, Investigator, Chef, Empath, Fortune Teller, Undertaker, Monk, Ravenkeeper, Virgin, Slayer, Soldier, Mayor
+- Outsiders: Butler, Drunk, Recluse, Saint
+- Minions: Poisoner, Spy, Scarlet Woman, Baron
+- Demon: Imp
+
+**Interactivity:** none — read-only reference panel.
+
+**Scope:** treat as a static image asset in the initial implementation. Future editions swap the image. The parchment container background should be exported separately from the character content if possible.
 
 ### 9. Game Reset
 
-- Reset button always visible (or accessible via menu)
+- Reset button is visible only during ACTIVE phase (see [Section 11 — Control Buttons](#11-control-buttons))
 - Clicking reset shows a confirmation dialog before executing
 - On confirm: writes default SETUP state to Firebase, which propagates to all connected devices
-- **Placement**: no reset button is designed in the current Figma. Implement as a small button in the bottom-left corner of the screen (outside the token circle). Style to match the teal/parchment palette.
-- **Confirmation dialog**: not designed in Figma. Use a simple modal overlay (semi-transparent dark background) with a parchment-styled dialog box, "Reset game?" message, and Confirm / Cancel buttons matching the teal color scheme.
+- **Placement**: bottom-right corner of the 1920×1080 frame. Not in Figma; implement as a small button.
+- **Font**: Baskerville (or `"Baskerville", "Baskerville Old Face", Georgia, serif` stack)
+- **Label**: "Reset"
+- **Confirmation dialog (design decision — not in Figma):**
+  - Overlay: `rgba(0, 0, 0, 0.65)` covering the full 1920×1080 board
+  - Dialog box: ~320×140px, centered; parchment-colored background (`#F4EFDC`), 2px solid border `#84722B`, 8px border-radius
+  - Message: "Reset game?" — Libra BT 20px, black, centered
+  - Buttons: side-by-side, Baskerville 13px
+    - **Confirm**: ~100×32px, dark teal background (`#143847`), `#F4EFDC` text
+    - **Cancel**: ~100×32px, transparent background, dark teal border `#143847`, `#143847` text
+  - Cancel is the default focused button (pressing Escape also cancels)
+
+### 11. Control Buttons (Bottom-Right)
+
+A small button cluster sits in the bottom-right corner of the 1920×1080 frame, outside the token circle.
+
+**Visibility by phase:**
+
+| Button | SETUP | ACTIVE |
+|--------|-------|--------|
+| Start Game | visible | hidden |
+| Reset | hidden | visible |
+| Undo | hidden | visible |
+
+**Start Game button:**
+- Visible only during SETUP phase
+- Disabled (greyed out) until `playerCount` is set
+- On click: transitions `phase` from `"setup"` to `"active"` in Firebase; button is replaced by Reset + Undo
+- Typography: TBD (match game aesthetic)
+
+**Reset button:**
+- Label: "Reset"
+- **Font**: Baskerville (`"Baskerville", "Baskerville Old Face", Georgia, serif`)
+- Small; exact pixel size not in Figma — implement at roughly 80×28px
+- On click: shows confirmation dialog (see [Section 9](#9-game-reset))
+
+**Undo button:**
+- Label: "Undo"
+- Adjacent to Reset button (placed to the left of Reset)
+- **Font**: Baskerville (`"Baskerville", "Baskerville Old Face", Georgia, serif`)
+- **Size**: ~80×28px (same as Reset button)
+- **Styling**: match Reset button appearance exactly; disabled state uses 40% opacity and `cursor: not-allowed`
+- Reverts the board to the most recent previous game state
+- **Implementation**: client-side in-memory state stack (single level). A snapshot of the full Firebase game document is captured before each state-mutating action (token flip, drag, name change, phase transition). One press reverts to that snapshot, writes it to Firebase, and clears the stack. Undo history is **not** persisted to Firebase — it is lost on page refresh or if another device mutates state.
+- Disabled when no undo snapshot is available
 
 ### 10. Responsive Scaling
 
@@ -372,14 +489,16 @@ No build step required. All files are served as-is.
 - [x] Responsive/scaling → scale-to-fill-width: board scales so its width always fills the viewport, height follows 16:9 aspect ratio; scrollbars appear below 640px viewport width
 - [x] Rotation behavior → tokens fixed to computed positions; banners always horizontal
 
-### Still Open
+### Resolved by Design Decision (2026-05-15)
 
-- [ ] **Spare vote token zone** — not in Figma. Decision needed: (a) dead player gains vote token via a second tap on the token, or (b) design a spare zone later. Current implementation plan: single tap on a dead-no-vote-token player adds a vote token; single tap on a vote token removes it.
-- [ ] **Alive Traveler token** — no separate traveler asset in Figma. Use the Alive asset for now; replace when art is provided.
-- [ ] **Reset button placement** — not in Figma. Defaulting to bottom-left corner; confirm with designer.
-- [ ] **Confirmation dialog** — not in Figma. Implementing a simple modal; confirm styling later.
-- [ ] **Edition Reference Panel exact dimensions** — panel is visible in Figma but JSON was truncated before its node; approximate position used. Needs precise export.
-- [ ] **SETUP phase UI** — Figma only shows ACTIVE state. Player count selector and column selection UI must be designed or implemented with developer defaults.
+- [x] **Ghost token appearance** — ghost token and shroud ring now appear automatically on death. Ghost token click removes it; ring persists. Resolved.
+- [x] **Alive Traveler token** — no separate traveler asset in Figma. Use the Alive asset for now; replace when art is provided. Compromise accepted.
+- [x] **Reset button placement** — confirmed bottom-right corner. Baskerville font.
+- [x] **Undo button** — client-side in-memory only (one level), styled to match Reset. See Section 11.
+- [x] **Confirmation dialog** — not in Figma. Design decision made: parchment-colored box, teal Confirm/Cancel buttons, Escape cancels. See Section 9.
+- [x] **Edition Reference Panel parchment background** — image ref `b9990f8ca86a8dccf902b610efeb901a0cd097c5` confirmed from Figma node 1:233. Position and dimensions already in Section 8. Added to assets table.
+- [x] **Shroud ring exact styling** — not in Figma. Design decision made: 110px diameter, `rgba(255,255,255,0.6)` stroke, 2px weight. See Section 3.
+- [x] **SETUP phase UI** — player count selected by clicking the Traveler Sheet column. Start Game button in bottom-right transitions to ACTIVE.
 - [x] **Dark mode / theming** — not supported. Single fixed visual theme only.
 
 ---
@@ -388,12 +507,13 @@ No build step required. All files are served as-is.
 
 Figma file key: `mRZw6L1s9H7TOW4XFsgc7K`
 
-| Asset | Figma imageRef | Source size | Rendered size |
-|---|---|---|---|
-| Background | `7e8dce6958b0d5e6a095e78c647ce7808f7bc5d8` | 4096×2305 | 1920×1080 (fill) |
-| Alive token | `3e7d2e9329c4543adc15269328396248ab01b0ed` | 724×724 | 100×100 |
-| Dead token | `0679a1b72478d72d71170a828fcb748c37be2a00` | 450×450 | 100×100 |
-| Ghost/vote token | `36acec05a0fd896e80f057b67a0f9214abe46f85` | 203×203 | 45×45 |
-| Traveler Sheet texture | `97815547e01b713d06e176dd7b2dc1eddbae44e7` | unknown | 500×140 |
+| Asset | Figma imageRef | Source size | Rendered size | Local filename |
+|---|---|---|---|---|
+| Background | `7e8dce6958b0d5e6a095e78c647ce7808f7bc5d8` | 3840×2160 | 1920×1080 (fill) | `background.png` ✓ |
+| Alive token | `3e7d2e9329c4543adc15269328396248ab01b0ed` | 200×200 | 100×100 | `token-alive.png` ✓ |
+| Dead token | `0679a1b72478d72d71170a828fcb748c37be2a00` | 200×200 | 100×100 | `token-dead.png` ✓ |
+| Ghost/vote token | `36acec05a0fd896e80f057b67a0f9214abe46f85` | 90×90 | 45×45 | `token-ghost.png` ✓ |
+| Traveler Sheet texture | `97815547e01b713d06e176dd7b2dc1eddbae44e7` | 1000×280 | 500×140 | `traveler-sheet-bg.png` ✓ |
+| Edition panel parchment (1:233) | `b9990f8ca86a8dccf902b610efeb901a0cd097c5` | 1000×1530 | 500×765 | `edition-panel-bg.png` ✓ |
 
 Export all assets via the Figma API at 1× (pixel-perfect) for the 1920×1080 fixed layout.
