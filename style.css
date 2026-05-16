@@ -12,11 +12,12 @@ html {
 body {
   background: #000;
   margin: 0;
-  font-family: 'LibraBT', 'Libre Baskerville', Georgia, serif;
+  font-family: 'libra-mn', Georgia, serif;
 }
 
 #board-wrapper {
-  width: 100%;
+  width: calc(100% - 100px);
+  margin-left: 100px;
   position: relative;
   overflow: hidden;
 }
@@ -38,6 +39,19 @@ body {
   height: 1080px;
   object-fit: fill;
   pointer-events: none;
+}
+
+/* ── Clock face easter egg ─────────────────────────── */
+
+#clock-face-btn {
+  position: absolute;
+  left: 622px;
+  top: 438px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 5;
 }
 
 /* ── Player seats ──────────────────────────────────── */
@@ -82,9 +96,6 @@ body {
   display: none;
 }
 
-.player-seat.dead .shroud-ring {
-  display: block;
-}
 
 .token-face {
   position: absolute;
@@ -149,33 +160,35 @@ body {
   left: 50%;
   transform: translateX(-50%);
   top: 95px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background-image: url('banner.svg');
   background-size: 100% 100%;
   background-repeat: no-repeat;
   pointer-events: auto;
-  padding: 4px 14px 0;
 }
 
-.name-banner input {
+.name-text-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.name-banner-input {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 4px;
+  height: 18px;
   background: transparent;
   border: none;
   outline: none;
   padding: 0;
-  margin: 0;
-  line-height: 1;
   color: #F4EFDC;
-  font-family: 'LibraBT', 'Libre Baskerville', Georgia, serif;
+  font-family: 'libra-mn', Georgia, serif;
   font-size: 11px;
   text-align: center;
-  width: 100%;
-  min-width: 0;
-}
-
-.name-banner input::placeholder {
-  color: rgba(244, 239, 220, 0.45);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ── Dragging state ────────────────────────────────── */
@@ -244,7 +257,7 @@ body {
   text-align: center;
   padding: 2px 1px;
   vertical-align: middle;
-  font-family: 'LibraBT', 'Libre Baskerville', Georgia, serif;
+  font-family: 'libra-mn', Georgia, serif;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -258,7 +271,6 @@ body {
 }
 
 #traveler-table tbody .row-label {
-  color: #000;
   font-size: 9px;
   text-transform: lowercase;
   text-align: left;
@@ -267,7 +279,7 @@ body {
 
 #traveler-table tbody .tf { color: #256187; }
 #traveler-table tbody .os { color: #256187; }
-#traveler-table tbody .mn { color: #256187; }
+#traveler-table tbody .mn { color: #6B1010; }
 #traveler-table tbody .dm { color: #6B1010; }
 
 .col-highlight {
@@ -312,12 +324,13 @@ body {
 
 .edition-title {
   position: absolute;
-  left: 81px;
+  left: 40px;
   top: 36px;
-  width: 342px;
+  right: 40px;
   text-align: center;
-  font-family: 'LibraBT', 'Libre Baskerville', Georgia, serif;
-  font-size: 40px;
+  font-family: 'libra-mn', Georgia, serif;
+  font-size: 30px;
+  white-space: nowrap;
   color: #000;
   line-height: 1;
 }
@@ -334,16 +347,16 @@ body {
   position: absolute;
   left: 33px;
   top: 115px;
-  right: 18px;
+  right: 28px;
   bottom: 30px;
   overflow: hidden;
 }
 
 .edition-section-heading {
-  font-family: 'LibraBT', 'Libre Baskerville', Georgia, serif;
-  font-size: 15px;
-  margin-bottom: 4px;
-  margin-top: 8px;
+  font-family: 'libra-mn', Georgia, serif;
+  font-size: 13px;
+  margin-bottom: 2px;
+  margin-top: 6px;
 }
 
 .edition-section-heading.tf { color: #256187; }
@@ -353,16 +366,19 @@ body {
 
 .edition-char-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 2px;
   gap: 6px;
 }
 
 .char-name {
-  font-family: 'LibraBT', 'Libre Baskerville', Georgia, serif;
-  font-size: 10px;
-  width: 69px;
+  font-family: 'libra-mn', Georgia, serif;
+  font-size: 9px;
+  width: 80px;
   flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .char-name.tf { color: #256187; }
@@ -371,27 +387,14 @@ body {
 .char-name.dm { color: #811010; }
 
 .char-icon {
-  width: 28px;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
   flex-shrink: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 1px;
 }
-
-.char-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.char-dot.tf { background: #256187; }
-.char-dot.os { background: #256187; }
-.char-dot.mn { background: #811010; }
-.char-dot.dm { background: #811010; }
 
 .char-desc {
-  font-family: Baskerville, 'Baskerville Old Face', Georgia, serif;
+  font-family: 'berthold-baskerville-pro', Baskerville, Georgia, serif;
   font-size: 9px;
   color: #000;
   line-height: 1.3;
@@ -404,7 +407,7 @@ body {
   position: absolute;
   bottom: 8px;
   right: 10px;
-  font-family: Baskerville, 'Baskerville Old Face', Georgia, serif;
+  font-family: 'berthold-baskerville-pro', Baskerville, Georgia, serif;
   font-size: 9px;
   color: #000;
 }
@@ -422,7 +425,7 @@ body {
 }
 
 .ctrl-btn {
-  font-family: Baskerville, 'Baskerville Old Face', Georgia, serif;
+  font-family: 'berthold-baskerville-pro', Baskerville, Georgia, serif;
   font-size: 13px;
   width: 80px;
   height: 28px;
@@ -490,7 +493,7 @@ body {
 }
 
 #reset-dialog p {
-  font-family: 'LibraBT', 'Libre Baskerville', Georgia, serif;
+  font-family: 'libra-mn', Georgia, serif;
   font-size: 20px;
   color: #000;
 }
@@ -507,7 +510,7 @@ body {
   color: #F4EFDC;
   border: none;
   border-radius: 3px;
-  font-family: Baskerville, 'Baskerville Old Face', Georgia, serif;
+  font-family: 'berthold-baskerville-pro', Baskerville, Georgia, serif;
   font-size: 13px;
   cursor: pointer;
 }
@@ -519,7 +522,7 @@ body {
   color: #143847;
   border: 1px solid #143847;
   border-radius: 3px;
-  font-family: Baskerville, 'Baskerville Old Face', Georgia, serif;
+  font-family: 'berthold-baskerville-pro', Baskerville, Georgia, serif;
   font-size: 13px;
   cursor: pointer;
 }

@@ -7,6 +7,11 @@ import { buildTravelerSheet, updateTravelerSheetSelection, columnIndexForCount }
 // ── Refs ─────────────────────────────────────────────────────────────────────
 
 const gameRef = ref(db, 'game');
+const bellRef = ref(db, 'bell');
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+
+const bellAudio = new Audio('Church Bell, Strikes 12 Times.mp3');
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -131,8 +136,10 @@ function confirmReset() {
 
 // ── Scale ─────────────────────────────────────────────────────────────────────
 
+const LEFT_BAR_WIDTH = 100;
+
 function updateScale() {
-  currentScale = window.innerWidth / 1920;
+  currentScale = (window.innerWidth - LEFT_BAR_WIDTH) / 1920;
   document.getElementById('board').style.transform        = `scale(${currentScale})`;
   document.getElementById('board-wrapper').style.height   = `${1080 * currentScale}px`;
   if (currentState?.playerCount) {
@@ -179,34 +186,34 @@ function render(state) {
 
 const TROUBLE_BREWING = {
   townsfolk: [
-    { name: 'Washerwoman',    desc: 'You start knowing that 1 of 2 players is a particular Townsfolk.' },
-    { name: 'Librarian',      desc: 'You start knowing that 1 of 2 players is a particular Outsider. (Or that 0 are in play.)' },
-    { name: 'Investigator',   desc: 'You start knowing that 1 of 2 players is a particular Minion.' },
-    { name: 'Chef',           desc: 'You start knowing how many pairs of evil players there are.' },
-    { name: 'Empath',         desc: 'Each night, you learn how many of your 2 alive neighbours are evil.' },
-    { name: 'Fortune Teller', desc: 'Each night, choose 2 players: you learn if either is the Demon. A good player registers as a Demon to you.' },
-    { name: 'Undertaker',     desc: 'Each night*, you learn which character died by execution today.' },
-    { name: 'Monk',           desc: 'Each night*, choose a player (not yourself): they are safe from the Demon tonight.' },
-    { name: 'Ravenkeeper',    desc: 'If you die at night, choose a player: you learn their character.' },
-    { name: 'Virgin',         desc: 'The 1st time you are nominated, if the nominator is a Townsfolk, they are immediately executed.' },
-    { name: 'Slayer',         desc: 'Once per game, during the day, publicly choose a player: if they are the Demon, they die.' },
-    { name: 'Soldier',        desc: 'You are safe from the Demon.' },
-    { name: 'Mayor',          desc: 'If only 3 players live & no execution occurs, your team wins. If you die at night, another player might die instead.' },
+    { name: 'Washerwoman',    icon: 'washerwoman.svg',    desc: 'You start knowing that 1 of 2 players is a particular Townsfolk.' },
+    { name: 'Librarian',      icon: 'librarian.svg',      desc: 'You start knowing that 1 of 2 players is a particular Outsider. (Or that 0 are in play.)' },
+    { name: 'Investigator',   icon: 'Investigator.svg',   desc: 'You start knowing that 1 of 2 players is a particular Minion.' },
+    { name: 'Chef',           icon: 'chef.svg',           desc: 'You start knowing how many pairs of evil players there are.' },
+    { name: 'Empath',         icon: 'empath.svg',         desc: 'Each night, you learn how many of your 2 alive neighbours are evil.' },
+    { name: 'Fortune Teller', icon: 'fortune-teller.svg', desc: 'Each night, choose 2 players: you learn if either is the Demon. A good player registers as a Demon to you.' },
+    { name: 'Undertaker',     icon: 'undertaker.svg',     desc: 'Each night*, you learn which character died by execution today.' },
+    { name: 'Monk',           icon: 'monk.svg',           desc: 'Each night*, choose a player (not yourself): they are safe from the Demon tonight.' },
+    { name: 'Ravenkeeper',    icon: 'ravenkeeper.svg',    desc: 'If you die at night, choose a player: you learn their character.' },
+    { name: 'Virgin',         icon: 'virgin.svg',         desc: 'The 1st time you are nominated, if the nominator is a Townsfolk, they are immediately executed.' },
+    { name: 'Slayer',         icon: 'slayer.svg',         desc: 'Once per game, during the day, publicly choose a player: if they are the Demon, they die.' },
+    { name: 'Soldier',        icon: 'soldier.svg',        desc: 'You are safe from the Demon.' },
+    { name: 'Mayor',          icon: 'mayor.svg',          desc: 'If only 3 players live & no execution occurs, your team wins. If you die at night, another player might die instead.' },
   ],
   outsiders: [
-    { name: 'Butler',   desc: 'Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too.' },
-    { name: 'Drunk',    desc: 'You do not know you are the Drunk. You think you are a Townsfolk, but your ability malfunctions.' },
-    { name: 'Recluse',  desc: 'You might register as evil & as a Minion or Demon, even if dead.' },
-    { name: 'Saint',    desc: 'If you die by execution, your team loses.' },
+    { name: 'Butler',  icon: 'butler.svg',  desc: 'Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too.' },
+    { name: 'Drunk',   icon: 'drunk.svg',   desc: 'You do not know you are the Drunk. You think you are a Townsfolk, but your ability malfunctions.' },
+    { name: 'Recluse', icon: 'recluse.svg', desc: 'You might register as evil & as a Minion or Demon, even if dead.' },
+    { name: 'Saint',   icon: 'saint.svg',   desc: 'If you die by execution, your team loses.' },
   ],
   minions: [
-    { name: 'Poisoner',       desc: 'Each night, choose a player: they are poisoned tonight and tomorrow day.' },
-    { name: 'Spy',            desc: 'Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider, even if dead.' },
-    { name: 'Scarlet Woman',  desc: 'If there are 5+ players alive & the Demon dies, you become the Demon.' },
-    { name: 'Baron',          desc: 'There are extra 2 Outsiders in this game.' },
+    { name: 'Poisoner',      icon: 'poisoner.svg',      desc: 'Each night, choose a player: they are poisoned tonight and tomorrow day.' },
+    { name: 'Spy',           icon: 'spy.svg',           desc: 'Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider, even if dead.' },
+    { name: 'Scarlet Woman', icon: 'scarlet-woman.svg', desc: 'If there are 5+ players alive & the Demon dies, you become the Demon.' },
+    { name: 'Baron',         icon: 'baron.svg',         desc: 'There are extra 2 Outsiders in this game.' },
   ],
   demon: [
-    { name: 'Imp', desc: 'Each night*, choose a player: they die. If you kill yourself this way, a Minion becomes the Imp.' },
+    { name: 'Imp', icon: 'Imp.svg', desc: 'Each night*, choose a player: they die. If you kill yourself this way, a Minion becomes the Imp.' },
   ],
 };
 
@@ -242,11 +249,11 @@ function buildEditionPanel() {
       nameEl.className   = `char-name ${cls}`;
       nameEl.textContent = char.name;
 
-      const iconEl = document.createElement('div');
+      const iconEl = document.createElement('img');
       iconEl.className = 'char-icon';
-      const dot = document.createElement('div');
-      dot.className = `char-dot ${cls}`;
-      iconEl.appendChild(dot);
+      iconEl.src       = `icons/${char.icon}`;
+      iconEl.alt       = '';
+      iconEl.draggable = false;
 
       const descEl = document.createElement('div');
       descEl.className   = 'char-desc';
@@ -282,6 +289,17 @@ function init() {
   document.getElementById('btn-reset-confirm').addEventListener('click', confirmReset);
   document.getElementById('btn-reset-cancel').addEventListener('click', cancelReset);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cancelReset(); });
+
+  document.getElementById('clock-face-btn').addEventListener('click', () => {
+    set(bellRef, Date.now());
+  });
+
+  let bellReady = false;
+  onValue(bellRef, () => {
+    if (!bellReady) { bellReady = true; return; }
+    bellAudio.currentTime = 0;
+    bellAudio.play();
+  });
 
   window.addEventListener('resize', updateScale);
   updateScale();

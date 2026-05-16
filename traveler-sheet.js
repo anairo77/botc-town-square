@@ -66,7 +66,7 @@ export function buildTravelerSheet(onColumnClick) {
   ].forEach(({ key, label, cls }) => {
     const tr = document.createElement('tr');
     const labelTd = document.createElement('td');
-    labelTd.className   = 'row-label';
+    labelTd.className   = `row-label ${cls}`;
     labelTd.textContent = label;
     tr.appendChild(labelTd);
     TRAVELER_DATA.forEach((row, i) => {
