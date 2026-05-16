@@ -406,11 +406,14 @@ body {
 
 .edition-footer {
   position: absolute;
-  bottom: 8px;
-  right: 10px;
+  bottom: 24px;
+  right: 24px;
   font-family: 'berthold-baskerville-pro', Baskerville, Georgia, serif;
   font-size: 9px;
   color: #000;
+  background: #B8A94A;
+  padding: 6px 20px;
+  white-space: nowrap;
 }
 
 /* ── Control buttons ───────────────────────────────── */
