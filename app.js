@@ -136,7 +136,7 @@ function confirmReset() {
 
 // ── Scale ─────────────────────────────────────────────────────────────────────
 
-const LEFT_BAR_WIDTH = 100;
+const LEFT_BAR_WIDTH = 0;
 
 function updateScale() {
   currentScale = (window.innerWidth - LEFT_BAR_WIDTH) / 1920;
@@ -294,11 +294,21 @@ function init() {
     set(bellRef, Date.now());
   });
 
+  // Unlock audio on first interaction so Firebase-triggered plays work cross-client
+  document.addEventListener('click', () => {
+    bellAudio.muted = true;
+    bellAudio.play().then(() => {
+      bellAudio.pause();
+      bellAudio.currentTime = 0;
+      bellAudio.muted = false;
+    }).catch(() => {});
+  }, { once: true });
+
   let bellReady = false;
   onValue(bellRef, () => {
     if (!bellReady) { bellReady = true; return; }
     bellAudio.currentTime = 0;
-    bellAudio.play();
+    bellAudio.play().catch(() => {});
   });
 
   window.addEventListener('resize', updateScale);
