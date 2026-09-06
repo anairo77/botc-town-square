@@ -290,8 +290,26 @@ function init() {
   document.getElementById('btn-reset-cancel').addEventListener('click', cancelReset);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cancelReset(); });
 
+let bellReady = false;
+  let bellIsPlaying = false;
+
   document.getElementById('clock-face-btn').addEventListener('click', () => {
-    set(bellRef, Date.now());
+    const shouldPlay = !bellIsPlaying;
+
+    // Update local state immediately.
+    bellIsPlaying = shouldPlay;
+
+    // Stop and reset immediately when clicked while playing.
+    if (!shouldPlay) {
+      bellAudio.pause();
+      bellAudio.currentTime = 0;
+    }
+
+    // Share the new state with the other clients.
+    set(bellRef, {
+      playing: shouldPlay,
+      changedAt: Date.now(),
+    });
   });
 
   // Unlock audio on first interaction so Firebase-triggered plays work cross-client
@@ -304,28 +322,26 @@ function init() {
     }).catch(() => {});
   }, { once: true });
 
-  let bellReady = false;
-  onValue(bellRef, () => {
-    if (!bellReady) { bellReady = true; return; }
-    bellAudio.currentTime = 0;
-    bellAudio.play().catch(() => {});
-  });
+  onValue(bellRef, (snapshot) => {
+    const bellState = snapshot.val();
+    const shouldPlay = bellState?.playing === true;
 
-  window.addEventListener('resize', updateScale);
-  updateScale();
+    // Ignore the initial database value when the page loads.
+    if (!bellReady) {
+      bellReady = true;
+      bellIsPlaying = shouldPlay;
+      return;
+    }
 
-  initDrag(handleDragEnd);
+    bellIsPlaying = shouldPlay;
 
-  // Seed empty state if database is empty, then subscribe
-  get(gameRef).then(snapshot => {
-    if (!snapshot.val()) set(gameRef, emptySetupState());
-  });
-
-  onValue(gameRef, (snapshot) => {
-    currentState = snapshot.val() || emptySetupState();
-    if (!currentState.phase) currentState = emptySetupState();
-    render(currentState);
-    syncUndoButton();
+    if (shouldPlay) {
+      bellAudio.currentTime = 0;
+      bellAudio.play().catch(() => {});
+    } else {
+      bellAudio.pause();
+      bellAudio.currentTime = 0;
+    }
   });
 }
 
