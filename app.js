@@ -280,6 +280,32 @@ function buildEditionPanel() {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 function init() {
+  buildTravelerSheet(selectTravelerColumn);
+  buildEditionPanel();
+
+  document.getElementById('btn-start')
+    .addEventListener('click', startGame);
+
+  document.getElementById('btn-reset')
+    .addEventListener('click', initiateReset);
+
+  document.getElementById('btn-undo')
+    .addEventListener('click', performUndo);
+
+  document.getElementById('btn-reset-confirm')
+    .addEventListener('click', confirmReset);
+
+  document.getElementById('btn-reset-cancel')
+    .addEventListener('click', cancelReset);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      cancelReset();
+    }
+  });
+
+  // ── Bell audio ────────────────────────────────────────────────────────────
+
   let bellReady = false;
   let bellIsPlaying = false;
 
@@ -290,74 +316,55 @@ function init() {
 
   function playBell() {
     bellAudio.currentTime = 0;
-    bellAudio.play().catch(err => {
-      console.warn('Unable to play bell:', err);
+
+    bellAudio.play().catch((error) => {
+      console.warn('Unable to play bell:', error);
     });
   }
 
-  document.getElementById('clock-face-btn').addEventListener('click', () => {
-    const shouldPlay = !bellIsPlaying;
+  document.getElementById('clock-face-btn')
+    .addEventListener('click', () => {
+      const shouldPlay = !bellIsPlaying;
 
-    // Update local state immediately.
-    bellIsPlaying = shouldPlay;
+      // Update local state immediately so the second click can stop it
+      // without waiting for Firebase.
+      bellIsPlaying = shouldPlay;
 
-    if (shouldPlay) {
-      playBell();
-    } else {
-      stopBell();
-    }
+      if (shouldPlay) {
+        playBell();
+      } else {
+        stopBell();
+      }
 
-    // Synchronise the state with other clients.
-    set(bellRef, {
-      playing: shouldPlay,
-      changedAt: Date.now(),
-    }).catch(err => {
-      console.error('Unable to update bell state:', err);
-    });
-  });
-
-  // Unlock audio on the first user interaction.
-  document.addEventListener('click', () => {
-    bellAudio.muted = true;
-
-    bellAudio.play()
-      .then(() => {
-        bellAudio.pause();
-        bellAudio.currentTime = 0;
-        bellAudio.muted = false;
-      })
-      .catch(() => {
-        bellAudio.muted = false;
+      // Synchronise the state with other connected clients.
+      set(bellRef, {
+        playing: shouldPlay,
+        changedAt: Date.now(),
+      }).catch((error) => {
+        console.error('Unable to update bell state:', error);
       });
-  }, { once: true });
+    });
 
   onValue(bellRef, (snapshot) => {
     const value = snapshot.val();
 
-    // The new format is:
-    // { playing: true/false, changedAt: number }
-    //
-    // Treat any old numeric timestamp value as stopped.
     const shouldPlay =
       value !== null &&
       typeof value === 'object' &&
       value.playing === true;
 
-    // Ignore the initial database value when the page loads.
+    // Do not play a bell merely because the page has just loaded.
     if (!bellReady) {
       bellReady = true;
       bellIsPlaying = shouldPlay;
-
-      if (shouldPlay) {
-        playBell();
-      }
-
       return;
     }
 
-    // Firebase also sends our own update back to us.
-    // Do not restart or stop the audio unnecessarily.
-    if (shouldPlay === bellIsPlaying) return;
+    // Firebase echoes local writes back to this browser.
+    // The local click handler has already performed the action.
+    if (shouldPlay === bellIsPlaying) {
+      return;
+    }
 
     bellIsPlaying = shouldPlay;
 
@@ -368,36 +375,31 @@ function init() {
     }
   });
 
-  // Unlock audio on first interaction so Firebase-triggered plays work cross-client
-  document.addEventListener('click', () => {
-    bellAudio.muted = true;
-    bellAudio.play().then(() => {
-      bellAudio.pause();
-      bellAudio.currentTime = 0;
-      bellAudio.muted = false;
-    }).catch(() => {});
-  }, { once: true });
+  // ── Normal application startup ────────────────────────────────────────────
 
-  onValue(bellRef, (snapshot) => {
-    const bellState = snapshot.val();
-    const shouldPlay = bellState?.playing === true;
+  window.addEventListener('resize', updateScale);
+  updateScale();
 
-    // Ignore the initial database value when the page loads.
-    if (!bellReady) {
-      bellReady = true;
-      bellIsPlaying = shouldPlay;
-      return;
+  initDrag(handleDragEnd);
+
+  // Seed the game state if Firebase is empty.
+  get(gameRef).then((snapshot) => {
+    if (!snapshot.val()) {
+      return set(gameRef, emptySetupState());
+    }
+  }).catch((error) => {
+    console.error('Unable to load game state:', error);
+  });
+
+  onValue(gameRef, (snapshot) => {
+    currentState = snapshot.val() || emptySetupState();
+
+    if (!currentState.phase) {
+      currentState = emptySetupState();
     }
 
-    bellIsPlaying = shouldPlay;
-
-    if (shouldPlay) {
-      bellAudio.currentTime = 0;
-      bellAudio.play().catch(() => {});
-    } else {
-      bellAudio.pause();
-      bellAudio.currentTime = 0;
-    }
+    render(currentState);
+    syncUndoButton();
   });
 }
 
